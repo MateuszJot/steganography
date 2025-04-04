@@ -1,0 +1,40 @@
+<html>
+    <head>
+        <title>StegMJ - Encode</title>
+        <link rel="stylesheet" href="style/style.css">
+        <link rel="preconnect" href="https://fonts.googleapis.com">
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link href="https://fonts.googleapis.com/css2?family=Open+Sans:ital,wght@0,300..800;1,300..800&display=swap" rel="stylesheet">
+    </head>
+    <body>
+        <div class="navbar">
+            <a href="index.html"> 
+                <div class="button">
+                    Encode
+                </div>
+            </a>
+            <a href="decode.html"> 
+                <div class="button">
+                    Decode
+                </div>
+            </a>
+        </div>
+        <center>
+            <form onsubmit="return false" >
+                <h1>Encode</h1>
+                Message:<br/>
+                <textarea id="message" rows="4" cols="50"></textarea><br/><br/>
+                Key:<br/>
+                <input type="text" id="key"/><br/><br/>
+                BMP image:<br/>
+                <input type="file" id="image" accept="image/bmp"><br/><br/>
+                Use MSB:<br/>
+                <input type="checkbox" id="msb"><br/><br/>
+                <input type="submit" onclick="encode()" value="Encode"/>
+                <div id="output"></div>
+            </form>
+        </center>
+        <script type="text/javascript" src="src/OpenCrypto.min.js"></script>
+        <script src="src/main.js"></script>
+    </body>
+</html>

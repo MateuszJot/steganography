@@ -1,0 +1,62 @@
+:root {
+    background-color:#293241;
+    color: #E0FBFC;
+    font-family: "Open Sans", sans-serif;
+    font-optical-sizing: auto;
+    font-style: normal;
+    font-variation-settings: "wdth" 100;
+}
+
+:root a {
+    color: #E0FBFC;
+    text-decoration: none;
+}
+
+.navbar {
+    padding: 0px;
+    background-color: #3D5A80;
+    width: 100%;
+    height: 3rem;
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+}
+
+.navbar .button {
+   background-color: #4a70a1; 
+   width: 200px;
+   height: 3rem;  
+   text-align: center; 
+   line-height: 3rem;
+}
+
+
+.navbar .button:hover {
+    background-color: #3D5A80;
+    cursor: pointer; 
+}
+
+textarea 
+{
+    border: 0px;
+    width: 25%;
+}
+  
+input {
+    border: 0px;
+    width: 25%;
+}
+
+input[type=submit] {
+    color: #E0FBFC;
+    background-color: #4a70a1; 
+    width: 200px;
+    height: 3rem;  
+    text-align: center; 
+    line-height: 3rem;
+}
+
+input[type=submit]:hover {
+    background-color: #3D5A80;
+    cursor: pointer; 
+}
