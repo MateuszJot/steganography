@@ -1,10 +1,8 @@
 let output = document.getElementById("output");
-var salt = new Uint8Array([0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F]);
-const crypt = new OpenCrypto()
 
 async function encode() {
     let textElement = document.getElementById("message");
-    let keyElement = document.getElementById("key");
+    let seedElement = document.getElementById("seed");
     let imageElement = document.getElementById("image");
     let msb = document.getElementById("msb").checked;
     
@@ -13,8 +11,8 @@ async function encode() {
         return;
     }
 
-    if (keyElement.value === "") {
-        outputError("Please enter a key.");
+    if (seedElement.value === "") {
+        outputError("Please enter a seed.");
         return;
     }
 
@@ -23,21 +21,18 @@ async function encode() {
         return;
     }
 
-    let passphraseKey = await crypt.derivePassphraseKey(keyElement.value, salt);
+    let seed = Number(seedElement.value);
     let textEncoder = new TextEncoder();
-    let cipher = await crypt.encrypt(passphraseKey, textEncoder.encode(textElement.value));
-    let cipherByteArray = textEncoder.encode(cipher);
-    let cipherBytesLength = cipherByteArray.length;
-    let cipherBytes = new Uint8Array(4);
-    cipherBytes[0] = (cipherBytesLength >> 24) & 0xFF;
-    cipherBytes[1] = (cipherBytesLength >> 16) & 0xFF;
-    cipherBytes[2] = (cipherBytesLength >> 8) & 0xFF;
-    cipherBytes[3] = cipherBytesLength & 0xFF;
-    let encodedMessage = new Uint8Array(cipherBytesLength + cipherBytes.length);
-    encodedMessage.set(cipherBytes, 0);
-    encodedMessage.set(cipherByteArray, cipherBytes.length);
+    let byteArray = textEncoder.encode(textElement.value)
+    let bytesLength = byteArray.length;
+    let lengthInBytes = new Uint8Array(4);
+    lengthInBytes[0] = (bytesLength >> 24) & 0xFF;
+    lengthInBytes[1] = (bytesLength >> 16) & 0xFF;
+    lengthInBytes[2] = (bytesLength >> 8) & 0xFF;
+    lengthInBytes[3] = bytesLength & 0xFF;
 
-    let requiredBytes = encodedMessage.length * 4;
+
+    let requiredBytes = byteArray.length * 4;
     
     let file = imageElement.files[0];
     let reader = new FileReader();
@@ -57,16 +52,34 @@ async function encode() {
             return;
         }
 
-        for (let i = 0; i < encodedMessage.length; i++) {
-            let byte = encodedMessage[i];
+        let dataRandomIndexes = getRandomIndexes(seed, byteArray.length * 4, rawPixelData.byteLength);
+        
+        for (let i = 0; i < lengthInBytes.length; i++) {
+            let byte = lengthInBytes[i];
             for (let j = 0; j < 4; j++) {
+                let index = i * 4 + j; 
                 if (msb) {
-                    rawPixelData[i * 4 + j] &= 0x3F;
-                    rawPixelData[i * 4 + j] |= ((byte >> (j * 2)) & 0x03) << 6;
+                    rawPixelData[index] &= 0x3F;
+                    rawPixelData[index] |= ((byte >> (j * 2)) & 0x03) << 6;
                 }
                 else {
-                    rawPixelData[i * 4 + j] &= 0xFC;
-                    rawPixelData[i * 4 + j] |= (byte >> (j * 2)) & 0x03;
+                    rawPixelData[index] &= 0xFC;
+                    rawPixelData[index] |= (byte >> (j * 2)) & 0x03;
+                }
+            }
+        }
+
+        for (let i = 0; i < byteArray.length; i++) {
+            let byte = byteArray[i];
+            for (let j = 0; j < 4; j++) {
+                let randomIndex = dataRandomIndexes[i * 4 + j]; 
+                if (msb) {
+                    rawPixelData[randomIndex] &= 0x3F;
+                    rawPixelData[randomIndex] |= ((byte >> (j * 2)) & 0x03) << 6;
+                }
+                else {
+                    rawPixelData[randomIndex] &= 0xFC;
+                    rawPixelData[randomIndex] |= (byte >> (j * 2)) & 0x03;
                 }
             }
         }
@@ -83,11 +96,11 @@ async function encode() {
 }
 
 async function decode() {
-    let keyElement = document.getElementById("key");
+    let seedElement = document.getElementById("seed");
     let imageElement = document.getElementById("image");
     let msb = document.getElementById("msb").checked;
 
-    if (keyElement.value === "") {
+    if (seedElement.value === "") {
         outputError("Please enter a key.");
         return;
     }
@@ -97,6 +110,7 @@ async function decode() {
         return;
     }
 
+    let seed = Number(seedElement.value);
     let file = imageElement.files[0];
     let reader = new FileReader();
     reader.onload = async function (event) {
@@ -108,10 +122,10 @@ async function decode() {
             outputError("Invalid BMP file or file too small.");
             return;
         }
-    
+        
         let rawPixelData = imageArrayBuffer.slice(BMP_HEADER_SIZE);
-        let cipherByteArray = new Uint8Array(rawPixelData.byteLength / 4);
-        for (let i = 0; i < cipherByteArray.length; i++) {
+        let lengthByteArray = new Uint8Array(4);
+        for (let i = 0; i < lengthByteArray.length; i++) {
             let byte = 0;
             for (let j = 0; j < 4; j++) {
                 if (msb) {
@@ -122,20 +136,35 @@ async function decode() {
                 }
                 
             }
-            cipherByteArray[i] = byte;
+            lengthByteArray[i] = byte;
         }
-        let cipherBytesLength = 0;
-        cipherBytesLength |= (cipherByteArray[0] & 0xFF) << 24;
-        cipherBytesLength |= (cipherByteArray[1] & 0xFF) << 16;
-        cipherBytesLength |= (cipherByteArray[2] & 0xFF) << 8;
-        cipherBytesLength |= (cipherByteArray[3] & 0xFF);
+        let dataLength = 0;
+        dataLength |= (lengthByteArray[0] & 0xFF) << 24;
+        dataLength |= (lengthByteArray[1] & 0xFF) << 16;
+        dataLength |= (lengthByteArray[2] & 0xFF) << 8;
+        dataLength |= (lengthByteArray[3] & 0xFF);
+        let dataRandomIndexes = getRandomIndexes(seed, dataLength * 4, rawPixelData.byteLength);
+        let decodedByteArray = new Uint8Array(dataLength * 4);
+        for (let i = 0; i < decodedByteArray.length; i++) {
+            let byte = 0;
+            for (let j = 0; j < 4; j++) {
+                let randomIndex = dataRandomIndexes[i * 4 + j]; 
+                if (msb) {
+                    byte |= ((rawPixelData[randomIndex] & 0xC0) >> 6) << (j * 2);
+                }
+                else {
+                    byte |= (rawPixelData[randomIndex] & 0x03) << (j * 2);
+                }
+            }
+            decodedByteArray[i] = byte;
+        }
 
         try 
         {
-            let passphraseKey = await crypt.derivePassphraseKey(keyElement.value, salt);
             let textDecoder = new TextDecoder();
-            let decrypted = await crypt.decrypt(passphraseKey, textDecoder.decode(cipherByteArray.slice(4, 4 + cipherBytesLength)));
-            outputSuccess("Decoded message: <br/>" + textDecoder.decode(decrypted));
+            console.log(decodedByteArray);
+            let decoded = textDecoder.decode(decodedByteArray);
+            outputSuccess("Decoded message: <br/>" + decoded);
         }
         catch (e) 
         {
@@ -152,3 +181,26 @@ function outputSuccess(msg) {
 function outputError(msg) {
     output.innerHTML = `<p style="color: red">${msg}</p>`;
 }
+
+function getRandomIndexes(seed, dataLength, imageLength) {
+    let dataRandomIndexes = [];
+    let usedIndexes = new Set();
+    let rand = makeRand(seed);
+
+    while (dataRandomIndexes.length < dataLength) {
+        let randomIndex = Math.floor(rand.next().value * imageLength);
+        if (randomIndex > 16 && randomIndex < imageLength && !usedIndexes.has(randomIndex)) {
+            dataRandomIndexes.push(randomIndex);
+            usedIndexes.add(randomIndex);
+        }
+    }
+
+    return dataRandomIndexes;
+}
+
+function *makeRand(seed) {
+    while (true) {
+      seed = seed * 16807 % 2147483647
+      yield seed / 2147483647
+    }
+  }
